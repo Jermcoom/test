@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Headlines Widget</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111111;
+      --panel: #151515;
+      --menu: #1d1d1d;
+      --text: #ffffff;
+      --muted: rgba(255,255,255,.58);
+      --track: rgba(255,255,255,.12);
+      --bar: #ffffff;
+      --border: rgba(255,255,255,.14);
+      --focus: rgba(255,255,255,.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .widget {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 14px 38px rgba(0,0,0,.18);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+      flex: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 4vw, 26px);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .gear {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .gear:hover,
+    .gear[aria-expanded="true"] {
+      background: rgba(255,255,255,.07);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .gear:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .gear svg { width: 17px; height: 17px; display: block; }
+
+    .menu {
+      position: absolute;
+      top: 58px;
+      right: 20px;
+      z-index: 20;
+      width: min(272px, calc(100% - 40px));
+      max-height: calc(100% - 78px);
+      overflow-y: auto;
+      background: var(--menu);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+    }
+
+    .menu[hidden] { display: none; }
+
+    .menu-title {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .menu-title + .menu-title { margin-top: 14px; }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 0;
+      color: rgba(255,255,255,.86);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .toggle input[type="checkbox"] {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #ffffff;
+      cursor: pointer;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding: 7px 10px;
+      font: inherit;
+      font-size: 12px;
+      color-scheme: dark;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: rgba(255,255,255,.35);
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .note {
+      color: rgba(255,255,255,.4);
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 10px;
+    }
+
+    .stack {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.18) transparent;
+    }
+
+    .stack::-webkit-scrollbar { width: 6px; }
+    .stack::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 999px; }
+
+    .item {
+      display: block;
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      color: inherit;
+      text-decoration: none;
+      transition: opacity 140ms ease;
+    }
+
+    .item:last-child { border-bottom: none; }
+
+    .item:hover .title { color: #ffffff; text-decoration: underline; text-underline-offset: 2px; }
+
+    .item:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); border-radius: 8px; }
+
+    .title {
+      font-size: 13.5px;
+      line-height: 1.35;
+      color: rgba(255,255,255,.88);
+      letter-spacing: -.005em;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .byline {
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: rgba(255,255,255,.4);
+      font-size: 11px;
+      letter-spacing: .03em;
+    }
+
+    .source { text-transform: uppercase; letter-spacing: .07em; color: rgba(255,255,255,.52); }
+
+    .dot { width: 2px; height: 2px; border-radius: 50%; background: rgba(255,255,255,.3); }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      color: rgba(255,255,255,.35);
+      font-size: 12px;
+      text-align: center;
+      padding: 0 12px;
+      line-height: 1.5;
+    }
+
+    .meta {
+      flex: none;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: rgba(255,255,255,.38);
+      font-size: 11px;
+    }
+
+    .meta.error { color: rgba(255,255,255,.66); }
+
+    .meta span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .refresh {
+      flex: none;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: rgba(255,255,255,.45);
+      cursor: pointer;
+    }
+
+    .refresh:hover { background: rgba(255,255,255,.07); color: var(--text); }
+
+    .refresh:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+
+    .refresh svg { width: 13px; height: 13px; display: block; }
+
+    .loading { opacity: .45; }
+
+    @media (max-width: 520px) {
+      body { padding: 10px; }
+      .widget { padding: 18px 20px; border-radius: 16px; }
+      .menu { right: 16px; top: 54px; }
+      .title { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" aria-label="World headlines widget">
+    <header>
+      <div>
+        <h1>Headlines</h1>
+        <div class="subtitle">World</div>
+      </div>
+      <button class="gear" id="gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="menu" id="menu" role="dialog" aria-label="Headlines settings" hidden>
+      <div class="menu-title">Sources</div>
+      <label class="toggle">
+        BBC World
+        <input id="srcBbc" type="checkbox" checked />
+      </label>
+      <label class="toggle">
+        Reuters
+        <input id="srcReuters" type="checkbox" checked />
+      </label>
+      <label class="toggle">
+        Associated Press
+        <input id="srcAp" type="checkbox" checked />
+      </label>
+
+      <div class="menu-title">Display</div>
+      <label class="field">
+        Stories shown
+        <input id="countInput" type="number" min="3" max="20" step="1" value="6" />
+      </label>
+
+      <div class="menu-title">Relay</div>
+      <label class="field">
+        CORS relay URL
+        <input id="proxyInput" type="text" spellcheck="false" placeholder="https://\u2026/{url}" />
+      </label>
+      <div class="note" id="note">News sites do not allow direct browser requests, so feeds pass through a relay. Use <b>{url}</b> as the placeholder. Swap in your own Worker when you have one.</div>
+    </div>
+
+    <section class="stack" id="stack" aria-label="Latest headlines" aria-live="polite">
+      <div class="empty">Loading&hellip;</div>
+    </section>
+
+    <footer class="meta">
+      <span id="statusOut">Loading&hellip;</span>
+      <button class="refresh" id="refreshBtn" type="button" aria-label="Refresh" title="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---- Defaults ------------------------------------------------------
+         Reuters and AP retired their public RSS feeds, so those two are read
+         through Google News site queries. Swap any URL below for a direct
+         feed if you find a better one.
+      --------------------------------------------------------------------- */
+      var SOURCES = [
+        { id: 'bbc', name: 'BBC', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+        { id: 'reuters', name: 'Reuters', url: 'https://news.google.com/rss/search?q=when:1d+site:reuters.com&hl=en-US&gl=US&ceid=US:en' },
+        { id: 'ap', name: 'AP', url: 'https://news.google.com/rss/search?q=when:1d+site:apnews.com&hl=en-US&gl=US&ceid=US:en' }
+      ];
+      var DEFAULT_PROXY = 'https://api.allorigins.win/raw?url={url}';
+      var DEFAULT_COUNT = 6;
+      var REFRESH_MS = 20 * 60 * 1000;   // 20 minutes
+      var TIMEOUT_MS = 10000;
+      /* -------------------------------------------------------------------- */
+
+      var gear = document.getElementById('gear');
+      var menu = document.getElementById('menu');
+      var noteEl = document.getElementById('note');
+      var stack = document.getElementById('stack');
+      var statusOut = document.getElementById('statusOut');
+      var refreshBtn = document.getElementById('refreshBtn');
+      var countInput = document.getElementById('countInput');
+      var proxyInput = document.getElementById('proxyInput');
+      var toggles = {
+        bbc: document.getElementById('srcBbc'),
+        reuters: document.getElementById('srcReuters'),
+        ap: document.getElementById('srcAp')
+      };
+
+      // Storage can be blocked inside a sandboxed embed. Never let it throw.
+      var storageOk = true;
+      function readStore(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (err) { storageOk = false; return null; }
+      }
+      function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (err) { storageOk = false; }
+      }
+
+      /* ---- Settings menu -------------------------------------------------- */
+      function openMenu() {
+        menu.hidden = false;
+        gear.setAttribute('aria-expanded', 'true');
+      }
+      function closeMenu() {
+        menu.hidden = true;
+        gear.setAttribute('aria-expanded', 'false');
+      }
+      function toggleMenu() {
+        if (menu.hidden) { openMenu(); } else { closeMenu(); }
+      }
+
+      gear.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleMenu();
+      });
+      menu.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { closeMenu(); });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !menu.hidden) {
+          closeMenu();
+          gear.focus();
+        }
+      });
+
+      /* ---- Settings values ------------------------------------------------ */
+      for (var key in toggles) {
+        if (toggles.hasOwnProperty(key)) {
+          toggles[key].checked = readStore('headlines.src.' + key) !== '0';
+        }
+      }
+      countInput.value = readStore('headlines.count') || String(DEFAULT_COUNT);
+      proxyInput.value = readStore('headlines.proxy') || DEFAULT_PROXY;
+
+      if (!storageOk) {
+        noteEl.textContent = 'Feeds pass through a relay because news sites block direct browser requests. This embed blocks storage, so changes reset on reload.';
+      }
+
+      function activeSources() {
+        return SOURCES.filter(function (source) {
+          var input = toggles[source.id];
+          return input && input.checked;
+        });
+      }
+
+      function storyCount() {
+        var value = Number(countInput.value);
+        if (!value || isNaN(value)) return DEFAULT_COUNT;
+        return Math.max(3, Math.min(20, Math.round(value)));
+      }
+
+      function proxied(url) {
+        var template = (proxyInput.value || '').trim();
+        if (!template) return url;
+        if (template.indexOf('{url}') === -1) return template + encodeURIComponent(url);
+        return template.replace('{url}', encodeURIComponent(url));
+      }
+
+      /* ---- Feed parsing ---------------------------------------------------- */
+      function textOf(node, tag) {
+        var el = node.getElementsByTagName(tag)[0];
+        return el && el.textContent ? el.textContent.trim() : '';
+      }
+
+      // Google News wraps the publisher name in the title as "Headline - Publisher".
+      function cleanTitle(title, sourceName) {
+        var trimmed = title.replace(/\s+-\s+[^-]{2,40}$/, '');
+        return trimmed.length > 12 ? trimmed : title;
+      }
+
+      function parseFeed(xmlText, source) {
+        var doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+        if (doc.getElementsByTagName('parsererror').length) return [];
+
+        var nodes = doc.getElementsByTagName('item');
+        var isAtom = false;
+        if (!nodes.length) {
+          nodes = doc.getElementsByTagName('entry');
+          isAtom = true;
+        }
+
+        var items = [];
+        for (var i = 0; i < nodes.length; i++) {
+          var node = nodes[i];
+          var link = '';
+          if (isAtom) {
+            var linkEl = node.getElementsByTagName('link')[0];
+            link = linkEl ? linkEl.getAttribute('href') : '';
+          } else {
+            link = textOf(node, 'link');
+          }
+          var published = textOf(node, 'pubDate') || textOf(node, 'published') || textOf(node, 'updated');
+          var time = published ? new Date(published).getTime() : NaN;
+          var title = textOf(node, 'title');
+          if (!title) continue;
+          items.push({
+            title: cleanTitle(title, source.name),
+            link: link,
+            source: source.name,
+            time: isNaN(time) ? 0 : time
+          });
+        }
+        return items;
+      }
+
+      function timeAgo(ms) {
+        if (!ms) return '';
+        var diff = Date.now() - ms;
+        if (diff < 0) diff = 0;
+        var minutes = Math.floor(diff / 60000);
+        if (minutes < 1) return 'now';
+        if (minutes < 60) return minutes + 'm';
+        var hours = Math.floor(minutes / 60);
+        if (hours < 24) return hours + 'h';
+        return Math.floor(hours / 24) + 'd';
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      /* ---- Fetch and render ------------------------------------------------ */
+      var loading = false;
+
+      function fetchFeed(source) {
+        var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = setTimeout(function () { if (controller) controller.abort(); }, TIMEOUT_MS);
+
+        return fetch(proxied(source.url), controller ? { signal: controller.signal } : undefined)
+          .then(function (response) {
+            if (!response.ok) throw new Error(source.name + ' HTTP ' + response.status);
+            return response.text();
+          })
+          .then(function (text) {
+            clearTimeout(timer);
+            return parseFeed(text, source);
+          })
+          .catch(function (err) {
+            clearTimeout(timer);
+            if (window.console && console.error) console.error('Feed failed:', source.name, err);
+            return [];
+          });
+      }
+
+      function render(items) {
+        if (!items.length) {
+          stack.innerHTML = '<div class="empty">No stories returned.<br />Check the relay URL in settings.</div>';
+          return;
+        }
+        stack.innerHTML = items.map(function (item) {
+          var when = timeAgo(item.time);
+          return '<a class="item" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">' +
+            '<div class="title">' + escapeHtml(item.title) + '</div>' +
+            '<div class="byline"><span class="source">' + escapeHtml(item.source) + '</span>' +
+            (when ? '<span class="dot"></span><span>' + when + '</span>' : '') +
+            '</div></a>';
+        }).join('');
+      }
+
+      function load() {
+        if (loading) return;
+        var sources = activeSources();
+        if (!sources.length) {
+          stack.innerHTML = '<div class="empty">No sources enabled.</div>';
+          statusOut.textContent = 'Idle';
+          return;
+        }
+
+        loading = true;
+        stack.classList.add('loading');
+        statusOut.textContent = 'Loading\u2026';
+
+        Promise.all(sources.map(fetchFeed)).then(function (lists) {
+          var merged = [];
+          var failed = [];
+          lists.forEach(function (list, index) {
+            if (!list.length) failed.push(sources[index].name);
+            merged = merged.concat(list);
+          });
+
+          merged.sort(function (a, b) { return b.time - a.time; });
+          var items = merged.slice(0, storyCount());
+
+          if (items.length) {
+            render(items);
+            writeStore('headlines.cache', JSON.stringify({ items: items, ts: Date.now() }));
+          } else {
+            stack.innerHTML = '<div class="empty">Every feed failed.<br />The relay may be down, or this embed blocks network requests.</div>';
+          }
+
+          var stamp = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date());
+          if (failed.length && failed.length < sources.length) {
+            statusOut.textContent = 'Updated ' + stamp + ' \u00b7 ' + failed.join(', ') + ' unavailable';
+            statusOut.parentNode.classList.add('error');
+          } else if (failed.length === sources.length) {
+            statusOut.textContent = 'All sources failed \u00b7 check relay';
+            statusOut.parentNode.classList.add('error');
+          } else {
+            statusOut.textContent = 'Updated ' + stamp + ' \u00b7 ' + sources.length + ' sources';
+            statusOut.parentNode.classList.remove('error');
+          }
+
+          loading = false;
+          stack.classList.remove('loading');
+        });
+      }
+
+      // Paint instantly from cache, then refresh from the network.
+      try {
+        var cached = JSON.parse(readStore('headlines.cache') || 'null');
+        if (cached && cached.items && cached.items.length) {
+          render(cached.items);
+          statusOut.textContent = 'Cached \u00b7 refreshing\u2026';
+        }
+      } catch (err) {}
+
+      for (var id in toggles) {
+        if (toggles.hasOwnProperty(id)) {
+          (function (sourceId) {
+            toggles[sourceId].addEventListener('change', function () {
+              writeStore('headlines.src.' + sourceId, toggles[sourceId].checked ? '1' : '0');
+              load();
+            });
+          })(id);
+        }
+      }
+
+      countInput.addEventListener('change', function () {
+        writeStore('headlines.count', String(storyCount()));
+        load();
+      });
+      proxyInput.addEventListener('change', function () {
+        writeStore('headlines.proxy', proxyInput.value.trim());
+        load();
+      });
+      refreshBtn.addEventListener('click', function () { load(); });
+
+      load();
+      setInterval(load, REFRESH_MS);
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) load();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ticker Widget</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111111;
+      --panel: #151515;
+      --menu: #1d1d1d;
+      --text: #ffffff;
+      --muted: rgba(255,255,255,.58);
+      --track: rgba(255,255,255,.12);
+      --bar: #ffffff;
+      --border: rgba(255,255,255,.14);
+      --focus: rgba(255,255,255,.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .widget {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 14px 38px rgba(0,0,0,.18);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+      flex: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 4vw, 26px);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .gear {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .gear:hover,
+    .gear[aria-expanded="true"] {
+      background: rgba(255,255,255,.07);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .gear:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .gear svg { width: 17px; height: 17px; display: block; }
+
+    .menu {
+      position: absolute;
+      top: 58px;
+      right: 20px;
+      z-index: 20;
+      width: min(250px, calc(100% - 40px));
+      background: var(--menu);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+    }
+
+    .menu[hidden] { display: none; }
+
+    .menu-title {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    select {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding: 7px 10px;
+      font: inherit;
+      font-size: 13px;
+      color-scheme: dark;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: rgba(255,255,255,.35);
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 0;
+      color: rgba(255,255,255,.86);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #ffffff;
+      cursor: pointer;
+    }
+
+    .note {
+      color: rgba(255,255,255,.4);
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 10px;
+    }
+
+    .stack {
+      flex: 1 1 auto;
+      display: grid;
+      grid-auto-rows: min-content;
+      align-content: space-between;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 54px 1fr minmax(92px, auto);
+      gap: 12px;
+      align-items: center;
+    }
+
+    .symbol {
+      font-size: 14px;
+      color: rgba(255,255,255,.86);
+      letter-spacing: .02em;
+      font-weight: 550;
+    }
+
+    .symbol small {
+      display: block;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.34);
+      margin-top: 2px;
+    }
+
+    .track {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--track);
+      overflow: hidden;
+    }
+
+    .zero {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 1px;
+      background: rgba(255,255,255,.22);
+    }
+
+    .fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 0%;
+      background: var(--bar);
+      border-radius: 999px;
+      transition: left 600ms ease, width 600ms ease;
+    }
+
+    .fill.down { background: rgba(255,255,255,.42); }
+
+    .quote {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .price {
+      font-size: 13px;
+      color: rgba(255,255,255,.92);
+      font-weight: 600;
+    }
+
+    .change {
+      display: block;
+      font-size: 11px;
+      margin-top: 2px;
+      color: rgba(255,255,255,.42);
+    }
+
+    .change.up { color: rgba(255,255,255,.78); }
+
+    .meta {
+      flex: none;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: rgba(255,255,255,.38);
+      font-size: 11px;
+    }
+
+    .meta.error { color: rgba(255,255,255,.66); }
+
+    .meta span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .refresh {
+      flex: none;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: rgba(255,255,255,.45);
+      cursor: pointer;
+    }
+
+    .refresh:hover { background: rgba(255,255,255,.07); color: var(--text); }
+
+    .refresh:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+
+    .refresh svg { width: 13px; height: 13px; display: block; }
+
+    .loading { opacity: .45; }
+
+    @media (max-width: 520px) {
+      body { padding: 10px; }
+      .widget { padding: 18px 20px; border-radius: 16px; }
+      .row { grid-template-columns: 46px 1fr minmax(80px, auto); gap: 9px; }
+      .menu { right: 16px; top: 54px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fill { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" aria-label="Market ticker widget">
+    <header>
+      <div>
+        <h1>Ticker</h1>
+        <div class="subtitle" id="subtitleOut">Markets</div>
+      </div>
+      <button class="gear" id="gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="menu" id="menu" role="dialog" aria-label="Ticker settings" hidden>
+      <div class="menu-title">Ticker settings</div>
+      <label class="field">
+        Quote currency
+        <select id="baseSelect" aria-label="Quote currency">
+          <option value="CAD">CAD</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </label>
+      <label class="toggle">
+        Show currencies
+        <input id="showFx" type="checkbox" checked />
+      </label>
+      <label class="toggle">
+        Show crypto
+        <input id="showCrypto" type="checkbox" checked />
+      </label>
+      <div class="note" id="note">Rates from Frankfurter (ECB) and CoinGecko. Currency moves compare the last two published sessions; crypto is a rolling 24 hours.</div>
+    </div>
+
+    <section class="stack" id="stack" aria-label="Market quotes" aria-live="polite"></section>
+
+    <footer class="meta">
+      <span id="statusOut">Loading&hellip;</span>
+      <button class="refresh" id="refreshBtn" type="button" aria-label="Refresh" title="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---- Defaults ------------------------------------------------------
+         Both APIs are key-free and allow browser requests directly.
+         Stocks and indices are deliberately absent: no free provider allows
+         browser-side calls without a key, so they would need a relay.
+      --------------------------------------------------------------------- */
+      var FX_SYMBOLS = ['USD', 'EUR', 'GBP'];
+      var CRYPTO = [
+        { id: 'bitcoin', code: 'BTC', name: 'Bitcoin' },
+        { id: 'ethereum', code: 'ETH', name: 'Ethereum' }
+      ];
+      var FX_NAMES = { USD: 'US dollar', EUR: 'Euro', GBP: 'Pound', CAD: 'Canadian dollar' };
+      var REFRESH_MS = 10 * 60 * 1000;   // 10 minutes
+      var TIMEOUT_MS = 8000;
+      /* -------------------------------------------------------------------- */
+
+      var gear = document.getElementById('gear');
+      var menu = document.getElementById('menu');
+      var baseSelect = document.getElementById('baseSelect');
+      var fxInput = document.getElementById('showFx');
+      var cryptoInput = document.getElementById('showCrypto');
+      var noteEl = document.getElementById('note');
+      var subtitleOut = document.getElementById('subtitleOut');
+      var stack = document.getElementById('stack');
+      var statusOut = document.getElementById('statusOut');
+      var refreshBtn = document.getElementById('refreshBtn');
+
+      // Storage can be blocked inside a sandboxed embed. Never let it throw.
+      var storageOk = true;
+      function readStore(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (err) { storageOk = false; return null; }
+      }
+      function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (err) { storageOk = false; }
+      }
+
+      /* ---- Settings menu -------------------------------------------------- */
+      function openMenu() {
+        menu.hidden = false;
+        gear.setAttribute('aria-expanded', 'true');
+      }
+      function closeMenu() {
+        menu.hidden = true;
+        gear.setAttribute('aria-expanded', 'false');
+      }
+      function toggleMenu() {
+        if (menu.hidden) { openMenu(); } else { closeMenu(); }
+      }
+
+      gear.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleMenu();
+      });
+      menu.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { closeMenu(); });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !menu.hidden) {
+          closeMenu();
+          gear.focus();
+        }
+      });
+
+      /* ---- Settings values ------------------------------------------------ */
+      baseSelect.value = readStore('ticker.base') || 'CAD';
+      fxInput.checked = readStore('ticker.showFx') !== '0';
+      cryptoInput.checked = readStore('ticker.showCrypto') !== '0';
+
+      if (!storageOk) {
+        noteEl.textContent = 'Rates from Frankfurter (ECB) and CoinGecko. This embed blocks storage, so changes reset on reload.';
+      }
+
+      function base() { return baseSelect.value || 'CAD'; }
+
+      /* ---- Helpers --------------------------------------------------------- */
+      function withTimeout(url) {
+        var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = setTimeout(function () { if (controller) controller.abort(); }, TIMEOUT_MS);
+        return fetch(url, controller ? { signal: controller.signal } : undefined)
+          .then(function (response) {
+            clearTimeout(timer);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+          })
+          .catch(function (err) {
+            clearTimeout(timer);
+            throw err;
+          });
+      }
+
+      function isoDay(offsetDays) {
+        var d = new Date();
+        d.setDate(d.getDate() - offsetDays);
+        return d.getFullYear() + '-' +
+          String(d.getMonth() + 1).padStart(2, '0') + '-' +
+          String(d.getDate()).padStart(2, '0');
+      }
+
+      function formatPrice(value, digits) {
+        return value.toLocaleString('en-US', {
+          minimumFractionDigits: digits, maximumFractionDigits: digits
+        });
+      }
+
+      function formatChange(percent) {
+        var arrow = percent >= 0 ? '\u25b2' : '\u25bc';
+        return arrow + ' ' + Math.abs(percent).toFixed(2) + '%';
+      }
+
+      /* ---- Data ------------------------------------------------------------ */
+      // Frankfurter quotes base -> targets. Invert to price one unit of each
+      // foreign currency in the chosen base, which is how rates are read aloud.
+      function loadFx() {
+        if (!fxInput.checked) return Promise.resolve([]);
+
+        var quote = base();
+        var targets = FX_SYMBOLS.filter(function (code) { return code !== quote; });
+        if (!targets.length) return Promise.resolve([]);
+
+        var latestUrl = 'https://api.frankfurter.app/latest?from=' + quote + '&to=' + targets.join(',');
+        var seriesUrl = 'https://api.frankfurter.app/' + isoDay(10) + '..?from=' + quote + '&to=' + targets.join(',');
+
+        return Promise.all([withTimeout(latestUrl), withTimeout(seriesUrl)]).then(function (both) {
+          var latest = both[0];
+          var series = both[1];
+          var dates = Object.keys(series.rates || {}).sort();
+          var previous = dates.length > 1 ? series.rates[dates[dates.length - 2]] : null;
+
+          return targets.map(function (code) {
+            var nowRate = latest.rates[code];
+            var prevRate = previous ? previous[code] : null;
+            // Inverted: units of the quote currency per one unit of `code`.
+            var price = nowRate ? 1 / nowRate : null;
+            var prior = prevRate ? 1 / prevRate : null;
+            var change = (price && prior) ? ((price - prior) / prior) * 100 : 0;
+            return {
+              code: code,
+              name: FX_NAMES[code] || code,
+              price: price,
+              digits: 4,
+              change: change
+            };
+          }).filter(function (row) { return row.price; });
+        });
+      }
+
+      function loadCrypto() {
+        if (!cryptoInput.checked) return Promise.resolve([]);
+
+        var quote = base().toLowerCase();
+        var ids = CRYPTO.map(function (coin) { return coin.id; }).join(',');
+        var url = 'https://api.coingecko.com/api/v3/simple/price?ids=' + ids +
+          '&vs_currencies=' + quote + '&include_24hr_change=true';
+
+        return withTimeout(url).then(function (data) {
+          return CRYPTO.map(function (coin) {
+            var entry = data[coin.id];
+            if (!entry) return null;
+            return {
+              code: coin.code,
+              name: coin.name,
+              price: entry[quote],
+              digits: 0,
+              change: entry[quote + '_24h_change'] || 0
+            };
+          }).filter(Boolean);
+        });
+      }
+
+      /* ---- Render ----------------------------------------------------------- */
+      function render(rows) {
+        if (!rows.length) {
+          stack.innerHTML = '<div class="note">Nothing enabled in settings.</div>';
+          return;
+        }
+
+        // Scale every bar against the largest move on screen, floor 1%.
+        var peak = Math.max(1, Math.max.apply(null, rows.map(function (row) {
+          return Math.abs(row.change);
+        })));
+
+        stack.innerHTML = rows.map(function (row) {
+          var ratio = Math.min(1, Math.abs(row.change) / peak);
+          var half = ratio * 50;
+          var up = row.change >= 0;
+          var left = up ? 50 : 50 - half;
+
+          return '<div class="row">' +
+            '<div class="symbol">' + row.code + '<small>' + base() + '</small></div>' +
+            '<div class="track" role="img" aria-label="' + row.name + ' ' + formatChange(row.change) + '">' +
+              '<div class="zero"></div>' +
+              '<div class="fill' + (up ? '' : ' down') + '" style="left:' + left + '%;width:' + half + '%"></div>' +
+            '</div>' +
+            '<div class="quote">' +
+              '<span class="price">' + formatPrice(row.price, row.digits) + '</span>' +
+              '<span class="change' + (up ? ' up' : '') + '">' + formatChange(row.change) + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        subtitleOut.textContent = 'Priced in ' + base();
+      }
+
+      var loading = false;
+
+      function load() {
+        if (loading) return;
+        loading = true;
+        stack.classList.add('loading');
+        statusOut.textContent = 'Loading\u2026';
+
+        var failures = [];
+
+        Promise.all([
+          loadFx().catch(function (err) { failures.push('currencies'); return []; }),
+          loadCrypto().catch(function (err) { failures.push('crypto'); return []; })
+        ]).then(function (lists) {
+          var rows = lists[0].concat(lists[1]);
+
+          if (rows.length) {
+            render(rows);
+            writeStore('ticker.cache', JSON.stringify({ rows: rows, base: base(), ts: Date.now() }));
+          }
+
+          var stamp = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date());
+          if (!rows.length) {
+            statusOut.textContent = 'No data \u00b7 requests may be blocked by this embed';
+            statusOut.parentNode.classList.add('error');
+          } else if (failures.length) {
+            statusOut.textContent = 'Updated ' + stamp + ' \u00b7 ' + failures.join(', ') + ' unavailable';
+            statusOut.parentNode.classList.add('error');
+          } else {
+            statusOut.textContent = 'Updated ' + stamp + ' \u00b7 Frankfurter, CoinGecko';
+            statusOut.parentNode.classList.remove('error');
+          }
+
+          loading = false;
+          stack.classList.remove('loading');
+        });
+      }
+
+      // Paint instantly from cache, then refresh from the network.
+      try {
+        var cached = JSON.parse(readStore('ticker.cache') || 'null');
+        if (cached && cached.rows && cached.base === base()) {
+          render(cached.rows);
+          statusOut.textContent = 'Cached \u00b7 refreshing\u2026';
+        }
+      } catch (err) {}
+
+      baseSelect.addEventListener('change', function () {
+        writeStore('ticker.base', baseSelect.value);
+        load();
+      });
+      fxInput.addEventListener('change', function () {
+        writeStore('ticker.showFx', fxInput.checked ? '1' : '0');
+        load();
+      });
+      cryptoInput.addEventListener('change', function () {
+        writeStore('ticker.showCrypto', cryptoInput.checked ? '1' : '0');
+        load();
+      });
+      refreshBtn.addEventListener('click', function () { load(); });
+
+      load();
+      setInterval(load, REFRESH_MS);
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) load();
+      });
+    })();
+  </script>
+</body>
+</html>
