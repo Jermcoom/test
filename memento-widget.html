@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memento Mori Progress Widget</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111111;
+      --panel: #151515;
+      --menu: #1d1d1d;
+      --text: #ffffff;
+      --muted: rgba(255,255,255,.58);
+      --track: rgba(255,255,255,.12);
+      --bar: #ffffff;
+      --border: rgba(255,255,255,.14);
+      --focus: rgba(255,255,255,.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .widget {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 14px 38px rgba(0,0,0,.18);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+      flex: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 4vw, 26px);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .gear {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .gear:hover,
+    .gear[aria-expanded="true"] {
+      background: rgba(255,255,255,.07);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .gear:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .gear svg { width: 17px; height: 17px; display: block; }
+
+    .menu {
+      position: absolute;
+      top: 58px;
+      right: 20px;
+      z-index: 20;
+      width: min(248px, calc(100% - 40px));
+      background: var(--menu);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+    }
+
+    .menu[hidden] { display: none; }
+
+    .menu-title {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .field:last-of-type { margin-bottom: 0; }
+
+    input {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding: 7px 10px;
+      font: inherit;
+      font-size: 13px;
+      color-scheme: dark;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: rgba(255,255,255,.35);
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .note {
+      color: rgba(255,255,255,.4);
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 12px;
+    }
+
+    .stack {
+      flex: 1 1 auto;
+      display: grid;
+      grid-auto-rows: min-content;
+      align-content: space-between;
+      min-height: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 70px 1fr minmax(110px, auto);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .label {
+      font-size: 14px;
+      color: rgba(255,255,255,.86);
+      letter-spacing: .015em;
+    }
+
+    .track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--track);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: var(--bar);
+      transition: width 600ms ease;
+    }
+
+    .value {
+      text-align: right;
+      color: rgba(255,255,255,.72);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 520px) {
+      body { padding: 10px; }
+      .widget { padding: 18px 20px; border-radius: 16px; }
+      .row { grid-template-columns: 58px 1fr minmax(92px, auto); gap: 10px; }
+      .menu { right: 16px; top: 54px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fill { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" aria-label="Memento mori time remaining widget">
+    <header>
+      <div>
+        <h1>Memento Mori</h1>
+        <div class="subtitle">Time remaining</div>
+      </div>
+      <button class="gear" id="gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="menu" id="menu" role="dialog" aria-label="Memento settings" hidden>
+      <div class="menu-title">Life settings</div>
+      <label class="field">
+        Birth date
+        <input id="birthDate" type="date" aria-label="Birth date" />
+      </label>
+      <label class="field">
+        Life span target
+        <input id="lifeSpan" type="number" min="1" max="130" step="1" aria-label="Life span target in years" />
+      </label>
+      <div class="note" id="note">Saved in this browser.</div>
+    </div>
+
+    <section class="stack" id="stack" aria-label="Time remaining"></section>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---- Defaults ------------------------------------------------------
+         Used unless overridden in the settings menu.
+      --------------------------------------------------------------------- */
+      var BIRTH_DATE = '1992-10-26';  // YYYY-MM-DD
+      var LIFE_SPAN = 80;             // years
+      /* -------------------------------------------------------------------- */
+
+      var rows = [
+        { id: 'day', label: 'Day' },
+        { id: 'week', label: 'Week' },
+        { id: 'month', label: 'Month' },
+        { id: 'year', label: 'Year' },
+        { id: 'life', label: 'Life' }
+      ];
+
+      var stack = document.getElementById('stack');
+      var gear = document.getElementById('gear');
+      var menu = document.getElementById('menu');
+      var birthInput = document.getElementById('birthDate');
+      var spanInput = document.getElementById('lifeSpan');
+      var noteEl = document.getElementById('note');
+
+      stack.innerHTML = rows.map(function (row) {
+        return '' +
+          '<div class="row" data-row="' + row.id + '">' +
+            '<div class="label">' + row.label + '</div>' +
+            '<div class="track" role="progressbar" aria-label="' + row.label + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+              '<div class="fill"></div>' +
+            '</div>' +
+            '<div class="value">\u2014</div>' +
+          '</div>';
+      }).join('');
+
+      // Storage can be blocked inside a sandboxed embed. Never let it throw.
+      var storageOk = true;
+      function readStore(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (err) { storageOk = false; return null; }
+      }
+      function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (err) { storageOk = false; }
+      }
+
+      /* ---- Settings menu -------------------------------------------------- */
+      function openMenu() {
+        menu.hidden = false;
+        gear.setAttribute('aria-expanded', 'true');
+      }
+      function closeMenu() {
+        menu.hidden = true;
+        gear.setAttribute('aria-expanded', 'false');
+      }
+      function toggleMenu() {
+        if (menu.hidden) { openMenu(); } else { closeMenu(); }
+      }
+
+      gear.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleMenu();
+      });
+      menu.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { closeMenu(); });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !menu.hidden) {
+          closeMenu();
+          gear.focus();
+        }
+      });
+
+      /* ---- Time math ------------------------------------------------------ */
+      function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+      function endOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); }
+      function startOfWeek(d) {
+        var day = d.getDay();
+        var diff = (day + 6) % 7; // Monday start
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
+      }
+      function endOfWeek(d) {
+        var start = startOfWeek(d);
+        return new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+      }
+      function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+      function endOfMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 1); }
+      function startOfYear(d) { return new Date(d.getFullYear(), 0, 1); }
+      function endOfYear(d) { return new Date(d.getFullYear() + 1, 0, 1); }
+
+      function pctElapsed(start, end, now) {
+        var total = end - start;
+        if (total <= 0) return 100;
+        return Math.min(100, Math.max(0, ((now - start) / total) * 100));
+      }
+
+      // Always floor: a unit only counts once it is fully remaining.
+      // 1.9 days left reads as "1 day left", never "2 days left".
+      function floorLabel(amount, unit) {
+        var whole = Math.max(0, Math.floor(amount));
+        var singular = unit.replace(/s$/, '');
+        return whole.toLocaleString() + ' ' + singular + (whole === 1 ? '' : 's') + ' left';
+      }
+
+      function updateRow(id, percentElapsed, text) {
+        var row = document.querySelector('[data-row="' + id + '"]');
+        var remaining = Math.max(0, Math.min(100, 100 - percentElapsed));
+        row.querySelector('.fill').style.width = remaining + '%';
+        row.querySelector('.value').textContent = text;
+        var track = row.querySelector('.track');
+        track.setAttribute('aria-valuenow', String(Math.round(remaining)));
+        track.setAttribute('aria-valuetext', text);
+      }
+
+      /* ---- Settings values ------------------------------------------------ */
+      var savedBirth = readStore('memento.birthDate');
+      var savedSpan = readStore('memento.lifeSpan');
+      birthInput.value = savedBirth || BIRTH_DATE;
+      spanInput.value = savedSpan || String(LIFE_SPAN);
+
+      if (!storageOk) {
+        noteEl.textContent = 'This embed blocks storage, so changes reset on reload.';
+      }
+
+      function currentBirth() {
+        var value = birthInput.value || BIRTH_DATE;
+        var date = new Date(value + 'T00:00:00');
+        return isNaN(date.getTime()) ? new Date(BIRTH_DATE + 'T00:00:00') : date;
+      }
+      function currentSpan() {
+        var value = Number(spanInput.value);
+        if (!value || isNaN(value)) return LIFE_SPAN;
+        return Math.max(1, Math.min(130, value));
+      }
+
+      function update() {
+        var now = new Date();
+
+        var dayEnd = endOfDay(now);
+        var weekEnd = endOfWeek(now);
+        var monthEnd = endOfMonth(now);
+        var yearEnd = endOfYear(now);
+
+        updateRow('day', pctElapsed(startOfDay(now), dayEnd, now),
+          floorLabel((dayEnd - now) / 3600000, 'hours'));
+        updateRow('week', pctElapsed(startOfWeek(now), weekEnd, now),
+          floorLabel((weekEnd - now) / 86400000, 'days'));
+        updateRow('month', pctElapsed(startOfMonth(now), monthEnd, now),
+          floorLabel((monthEnd - now) / 86400000, 'days'));
+        updateRow('year', pctElapsed(startOfYear(now), yearEnd, now),
+          floorLabel((yearEnd - now) / 86400000, 'days'));
+
+        var birth = currentBirth();
+        var endLife = new Date(birth.getFullYear() + currentSpan(), birth.getMonth(), birth.getDate());
+        updateRow('life', pctElapsed(birth, endLife, now),
+          floorLabel((endLife - now) / 31556952000, 'years'));
+      }
+
+      birthInput.addEventListener('change', function () {
+        writeStore('memento.birthDate', birthInput.value);
+        update();
+      });
+      spanInput.addEventListener('input', function () {
+        writeStore('memento.lifeSpan', spanInput.value);
+        update();
+      });
+
+      update();
+      setInterval(update, 1000);
+    })();
+  </script>
+</body>
+</html>

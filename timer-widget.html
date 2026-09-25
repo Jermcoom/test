@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Timer Widget</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111111;
+      --panel: #151515;
+      --menu: #1d1d1d;
+      --text: #ffffff;
+      --muted: rgba(255,255,255,.58);
+      --track: rgba(255,255,255,.12);
+      --bar: #ffffff;
+      --border: rgba(255,255,255,.14);
+      --focus: rgba(255,255,255,.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .widget {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 14px 38px rgba(0,0,0,.18);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+      flex: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 4vw, 26px);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .gear {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .gear:hover,
+    .gear[aria-expanded="true"] {
+      background: rgba(255,255,255,.07);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .gear:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+    .gear svg { width: 17px; height: 17px; display: block; }
+
+    .menu {
+      position: absolute;
+      top: 76px;
+      right: 20px;
+      z-index: 20;
+      width: min(236px, calc(100% - 32px));
+      max-height: calc(100% - 92px);
+      overflow: auto;
+      background: var(--menu);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+    }
+
+    .menu[hidden] { display: none; }
+
+    .menu-title {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    /* Inline label + input rows keep three settings inside a 300px tile. */
+    .field {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .field:last-child { margin-bottom: 0; }
+
+    input[type="number"] {
+      width: 74px;
+      flex: none;
+      min-height: 30px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding: 4px 8px;
+      font: inherit;
+      font-size: 13px;
+      color-scheme: dark;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: rgba(255,255,255,.35);
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    /* ---- Main ---------------------------------------------------------- */
+    .main {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      min-height: 0;
+    }
+
+    .ring {
+      position: relative;
+      width: 122px;
+      height: 122px;
+      flex: none;
+    }
+
+    .ring svg {
+      width: 122px;
+      height: 122px;
+      display: block;
+      transform: rotate(-90deg);
+    }
+
+    .ring .track { stroke: var(--track); }
+
+    .ring .bar {
+      stroke: var(--bar);
+      stroke-linecap: round;
+      transition: stroke-dashoffset 240ms linear;
+    }
+
+    .ring.break .bar { stroke: rgba(255,255,255,.55); }
+
+    .clock {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 27px;
+      font-weight: 650;
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Status sits directly above the buttons so neither row is squeezed. */
+    .stack {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: grid;
+      gap: 14px;
+      justify-items: end;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .state {
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.72);
+      white-space: nowrap;
+    }
+
+    .dots {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      flex: none;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+    }
+
+    .dot.done { background: var(--bar); border-color: var(--bar); }
+    .dot.active { border-color: rgba(255,255,255,.75); box-shadow: 0 0 0 3px rgba(255,255,255,.08); }
+
+    .session {
+      font-size: 13px;
+      color: rgba(255,255,255,.72);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .action {
+      min-height: 38px;
+      padding: 0 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+
+    .action:hover { background: rgba(255,255,255,.1); }
+    .action:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+
+    .action.primary {
+      background: var(--bar);
+      border-color: var(--bar);
+      color: #111111;
+      font-weight: 600;
+      min-width: 96px;
+    }
+
+    .action.primary:hover { background: rgba(255,255,255,.88); }
+
+    .footer {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 11px;
+      color: rgba(255,255,255,.42);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .shortcut {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Keycaps signal that Space, R, and S are pressable. */
+    .key {
+      display: inline-block;
+      min-width: 20px;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.7);
+      font-family: inherit;
+      font-size: 10px;
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    @media (max-width: 520px) {
+      body { padding: 10px; }
+      .widget { padding: 18px 20px; border-radius: 16px; }
+      .main { gap: 14px; }
+      .ring, .ring svg { width: 104px; height: 104px; }
+      .clock { font-size: 23px; }
+      .stack { gap: 10px; justify-items: start; }
+      .menu { right: 16px; top: 72px; }
+      .footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" aria-label="Timer widget">
+    <header>
+      <div>
+        <h1>Timer</h1>
+        <div class="subtitle" id="subtitle">Focus session</div>
+      </div>
+      <button class="gear" id="gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="menu" id="menu" role="dialog" aria-label="Timer settings" hidden>
+      <div class="menu-title">Timer settings</div>
+      <label class="field">
+        Focus minutes
+        <input id="focusInput" type="number" min="1" max="180" step="1" aria-label="Focus minutes" />
+      </label>
+      <label class="field">
+        Break minutes
+        <input id="breakInput" type="number" min="1" max="60" step="1" aria-label="Break minutes" />
+      </label>
+      <label class="field">
+        Long break
+        <input id="longInput" type="number" min="1" max="120" step="1" aria-label="Long break minutes" />
+      </label>
+    </div>
+
+    <section class="main">
+      <div class="ring" id="ring">
+        <svg viewBox="0 0 140 140" aria-hidden="true">
+          <circle class="track" cx="70" cy="70" r="62" fill="none" stroke-width="9"></circle>
+          <circle class="bar" id="bar" cx="70" cy="70" r="62" fill="none" stroke-width="9"></circle>
+        </svg>
+        <div class="clock" id="clock" role="timer" aria-live="off">25:00</div>
+      </div>
+
+      <div class="stack">
+        <div class="status">
+          <span class="state" id="state">Ready</span>
+          <span class="dots" id="dots" aria-hidden="true"></span>
+          <span class="session" id="session">Session 1 of 4</span>
+        </div>
+
+        <div class="controls">
+          <button class="action" id="skipBtn" type="button">Skip</button>
+          <button class="action" id="resetBtn" type="button">Reset</button>
+          <button class="action primary" id="startBtn" type="button">Start</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer" id="footer">
+      <span class="shortcut"><kbd class="key">Space</kbd> start / pause</span>
+      <span class="shortcut"><kbd class="key">R</kbd> reset</span>
+      <span class="shortcut"><kbd class="key">S</kbd> skip</span>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var DEFAULT_FOCUS = 25; // minutes
+      var DEFAULT_BREAK = 5;  // minutes
+      var DEFAULT_LONG = 15;  // minutes
+      var CYCLE = 4;          // focus sessions before a long break
+      var QA_ELAPSED_MS = 0;  // render-test hook; always 0 in the shipped widget
+
+      var CIRCUMFERENCE = 2 * Math.PI * 62;
+
+      var subtitle = document.getElementById('subtitle');
+      var bar = document.getElementById('bar');
+      var ring = document.getElementById('ring');
+      var clockEl = document.getElementById('clock');
+      var stateEl = document.getElementById('state');
+      var dotsEl = document.getElementById('dots');
+      var sessionEl = document.getElementById('session');
+      var startBtn = document.getElementById('startBtn');
+      var resetBtn = document.getElementById('resetBtn');
+      var skipBtn = document.getElementById('skipBtn');
+      var gear = document.getElementById('gear');
+      var menu = document.getElementById('menu');
+      var focusInput = document.getElementById('focusInput');
+      var breakInput = document.getElementById('breakInput');
+      var longInput = document.getElementById('longInput');
+
+      bar.style.strokeDasharray = CIRCUMFERENCE;
+      bar.style.strokeDashoffset = CIRCUMFERENCE;
+
+      var storageOk = true;
+      function readStore(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (err) { storageOk = false; return null; }
+      }
+      function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (err) { storageOk = false; }
+      }
+
+      function clampInt(value, min, max, fallback) {
+        var n = parseInt(value, 10);
+        if (isNaN(n)) { return fallback; }
+        return Math.min(max, Math.max(min, n));
+      }
+
+      var settings = {
+        focus: clampInt(readStore('timer.focus'), 1, 180, DEFAULT_FOCUS),
+        brk: clampInt(readStore('timer.break'), 1, 60, DEFAULT_BREAK),
+        long: clampInt(readStore('timer.longBreak'), 1, 120, DEFAULT_LONG)
+      };
+
+      focusInput.value = settings.focus;
+      breakInput.value = settings.brk;
+      longInput.value = settings.long;
+
+      function phaseDuration(phase) {
+        if (phase === 'focus') { return settings.focus * 60000; }
+        if (phase === 'long') { return settings.long * 60000; }
+        return settings.brk * 60000;
+      }
+
+      /* State keeps an absolute end timestamp, so the countdown stays accurate
+         across reloads and background tabs instead of drifting with the tick. */
+      var state = {
+        phase: 'focus',
+        completed: 0,
+        running: false,
+        endsAt: 0,
+        remainingMs: phaseDuration('focus') - QA_ELAPSED_MS
+      };
+
+      var stored = readStore('timer.state');
+      if (stored) {
+        try {
+          var parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === 'object') {
+            state.phase = parsed.phase === 'break' || parsed.phase === 'long' ? parsed.phase : 'focus';
+            state.completed = clampInt(parsed.completed, 0, 9999, 0);
+            state.running = !!parsed.running;
+            state.endsAt = typeof parsed.endsAt === 'number' ? parsed.endsAt : 0;
+            state.remainingMs = typeof parsed.remainingMs === 'number'
+              ? parsed.remainingMs
+              : phaseDuration(state.phase);
+          }
+        } catch (err) { /* ignore malformed state */ }
+      }
+
+      function save() { writeStore('timer.state', JSON.stringify(state)); }
+
+      function remaining() {
+        if (state.running) { return Math.max(0, state.endsAt - Date.now()); }
+        return Math.max(0, state.remainingMs);
+      }
+
+      /* Whole seconds only, always floored — never rounded up. */
+      function formatMs(ms) {
+        var total = Math.floor(ms / 1000);
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        var seconds = total % 60;
+        function pad(n) { return n < 10 ? '0' + n : String(n); }
+        if (hours > 0) { return hours + ':' + pad(minutes) + ':' + pad(seconds); }
+        return pad(minutes) + ':' + pad(seconds);
+      }
+
+      function phaseLabel(phase) {
+        if (phase === 'focus') { return 'Focus session'; }
+        if (phase === 'long') { return 'Long break'; }
+        return 'Short break';
+      }
+
+      function start() {
+        if (state.running) { return; }
+        var left = remaining();
+        if (left <= 0) { left = phaseDuration(state.phase); }
+        state.endsAt = Date.now() + left;
+        state.running = true;
+        save();
+        render();
+      }
+
+      function pause() {
+        if (!state.running) { return; }
+        state.remainingMs = remaining();
+        state.running = false;
+        save();
+        render();
+      }
+
+      function toggle() { if (state.running) { pause(); } else { start(); } }
+
+      function reset() {
+        state.running = false;
+        state.endsAt = 0;
+        state.remainingMs = phaseDuration(state.phase);
+        save();
+        render();
+      }
+
+      /* Move to the next phase. Focus blocks feed the session count; every
+         fourth one earns a long break. The next phase never auto-starts. */
+      function advance() {
+        if (state.phase === 'focus') {
+          state.completed += 1;
+          state.phase = state.completed % CYCLE === 0 ? 'long' : 'break';
+        } else {
+          if (state.phase === 'long') { state.completed = 0; }
+          state.phase = 'focus';
+        }
+        state.running = false;
+        state.endsAt = 0;
+        state.remainingMs = phaseDuration(state.phase);
+        save();
+        render();
+      }
+
+      function renderDots() {
+        var current = state.completed % CYCLE;
+        var markup = '';
+        for (var i = 0; i < CYCLE; i++) {
+          var cls = 'dot';
+          if (i < current) { cls += ' done'; }
+          else if (i === current && state.phase === 'focus') { cls += ' active'; }
+          markup += '<span class="' + cls + '"></span>';
+        }
+        dotsEl.innerHTML = markup;
+      }
+
+      function render() {
+        var left = remaining();
+        var duration = phaseDuration(state.phase);
+        var elapsed = Math.min(duration, Math.max(0, duration - left));
+        var progress = duration > 0 ? elapsed / duration : 0;
+
+        clockEl.textContent = formatMs(left);
+        bar.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+        ring.className = state.phase === 'focus' ? 'ring' : 'ring break';
+
+        subtitle.textContent = phaseLabel(state.phase);
+
+        if (left <= 0 && !state.running) {
+          stateEl.textContent = state.phase === 'focus' ? 'Focus complete' : 'Break over';
+        } else if (state.running) {
+          stateEl.textContent = 'Running';
+        } else if (left < duration) {
+          stateEl.textContent = 'Paused';
+        } else {
+          stateEl.textContent = 'Ready';
+        }
+
+        startBtn.textContent = state.running ? 'Pause' : 'Start';
+
+        var position = (state.completed % CYCLE) + 1;
+        if (state.phase === 'focus') {
+          sessionEl.textContent = 'Session ' + position + ' of ' + CYCLE;
+        } else if (state.phase === 'long') {
+          sessionEl.textContent = settings.long + ' min long break';
+        } else {
+          sessionEl.textContent = settings.brk + ' min break';
+        }
+
+        renderDots();
+      }
+
+      /* ---- Settings menu -------------------------------------------------- */
+      function openMenu() { menu.hidden = false; gear.setAttribute('aria-expanded', 'true'); }
+      function closeMenu() { menu.hidden = true; gear.setAttribute('aria-expanded', 'false'); }
+
+      gear.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (menu.hidden) { openMenu(); } else { closeMenu(); }
+      });
+      menu.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { closeMenu(); });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !menu.hidden) { closeMenu(); gear.focus(); }
+      });
+
+      function applySettings() {
+        settings.focus = clampInt(focusInput.value, 1, 180, DEFAULT_FOCUS);
+        settings.brk = clampInt(breakInput.value, 1, 60, DEFAULT_BREAK);
+        settings.long = clampInt(longInput.value, 1, 120, DEFAULT_LONG);
+        focusInput.value = settings.focus;
+        breakInput.value = settings.brk;
+        longInput.value = settings.long;
+        writeStore('timer.focus', settings.focus);
+        writeStore('timer.break', settings.brk);
+        writeStore('timer.longBreak', settings.long);
+        if (!state.running) {
+          state.remainingMs = phaseDuration(state.phase);
+          save();
+        }
+        render();
+      }
+
+      focusInput.addEventListener('change', applySettings);
+      breakInput.addEventListener('change', applySettings);
+      longInput.addEventListener('change', applySettings);
+
+      /* ---- Controls -------------------------------------------------------- */
+      startBtn.addEventListener('click', toggle);
+      resetBtn.addEventListener('click', reset);
+      skipBtn.addEventListener('click', advance);
+
+      document.addEventListener('keydown', function (event) {
+        var tag = (event.target && event.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') { return; }
+        if (event.code === 'Space' || event.key === ' ') {
+          event.preventDefault();
+          toggle();
+        } else if (event.key === 'r' || event.key === 'R') {
+          reset();
+        } else if (event.key === 's' || event.key === 'S') {
+          advance();
+        }
+      });
+
+      render();
+
+      setInterval(function () {
+        if (!state.running) { return; }
+        if (remaining() <= 0) {
+          state.running = false;
+          state.remainingMs = 0;
+          save();
+          render();
+          return;
+        }
+        render();
+      }, 250);
+    })();
+  </script>
+</body>
+</html>
