@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Clock Widget</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111111;
+      --panel: #151515;
+      --menu: #1d1d1d;
+      --text: #ffffff;
+      --muted: rgba(255,255,255,.58);
+      --track: rgba(255,255,255,.12);
+      --bar: #ffffff;
+      --border: rgba(255,255,255,.14);
+      --focus: rgba(255,255,255,.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .widget {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 14px 38px rgba(0,0,0,.18);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+      flex: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 4vw, 26px);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .gear {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .gear:hover,
+    .gear[aria-expanded="true"] {
+      background: rgba(255,255,255,.07);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .gear:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .gear svg { width: 17px; height: 17px; display: block; }
+
+    .menu {
+      position: absolute;
+      top: 76px;
+      right: 20px;
+      z-index: 20;
+      width: min(216px, calc(100% - 32px));
+      background: var(--menu);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+    }
+
+    .menu[hidden] { display: none; }
+
+    .menu-title {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 0;
+      color: rgba(255,255,255,.86);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #ffffff;
+      cursor: pointer;
+    }
+
+    .note {
+      color: rgba(255,255,255,.4);
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 10px;
+    }
+
+    .readout {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: baseline;
+      align-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      line-height: 1;
+      min-height: 0;
+    }
+
+    .hm {
+      font-size: clamp(38px, 15vw, 56px);
+      font-weight: 650;
+      letter-spacing: -.05em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sec {
+      font-size: clamp(14px, 5.5vw, 19px);
+      font-weight: 550;
+      letter-spacing: -.02em;
+      color: rgba(255,255,255,.52);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sec[hidden] { display: none; }
+
+    .meridiem {
+      margin-left: 3px;
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.72);
+    }
+
+    .meridiem:empty { display: none; }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      flex: none;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .label {
+      font-size: 14px;
+      color: rgba(255,255,255,.86);
+      letter-spacing: .015em;
+    }
+
+    .value {
+      text-align: right;
+      color: rgba(255,255,255,.72);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 520px) {
+      body { padding: 10px; }
+      .widget { padding: 18px 20px; border-radius: 16px; }
+      .row { grid-template-columns: 58px 1fr; gap: 10px; }
+      .menu { right: 16px; top: 72px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" aria-label="Current time widget">
+    <header>
+      <div>
+        <h1>Clock</h1>
+        <div class="subtitle">Current time</div>
+      </div>
+      <button class="gear" id="gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="menu" id="menu" role="dialog" aria-label="Clock settings" hidden>
+      <div class="menu-title">Clock settings</div>
+      <label class="toggle">
+        24-hour time
+        <input id="hour24" type="checkbox" />
+      </label>
+      <label class="toggle">
+        Show seconds
+        <input id="showSeconds" type="checkbox" checked />
+      </label>
+      <div class="note" id="note">Time zone follows this device.</div>
+    </div>
+
+    <section class="readout" aria-live="polite">
+      <span class="hm" id="hm">--:--</span>
+      <span class="sec" id="sec">:--</span>
+      <span class="meridiem" id="meridiem"></span>
+    </section>
+
+    <section class="stack" aria-label="Clock details">
+      <div class="row">
+        <div class="label">Zone</div>
+        <div class="value" id="zoneOut">—</div>
+      </div>
+      <div class="row">
+        <div class="label">Location</div>
+        <div class="value" id="locationOut">—</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // Fallback only, used if the device cannot report its own zone.
+      var FALLBACK_TZ = 'America/Winnipeg';
+
+      var hmEl = document.getElementById('hm');
+      var secEl = document.getElementById('sec');
+      var meridiemEl = document.getElementById('meridiem');
+      var zoneOut = document.getElementById('zoneOut');
+      var locationOut = document.getElementById('locationOut');
+      var gear = document.getElementById('gear');
+      var menu = document.getElementById('menu');
+      var hour24Input = document.getElementById('hour24');
+      var secondsInput = document.getElementById('showSeconds');
+      var noteEl = document.getElementById('note');
+
+      // Storage can be blocked inside a sandboxed embed. Never let it throw.
+      var storageOk = true;
+      function readStore(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (err) { storageOk = false; return null; }
+      }
+      function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (err) { storageOk = false; }
+      }
+
+      // The device drives the zone. There is no zone picker by design.
+      function deviceZone() {
+        try {
+          var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (zone) {
+            new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(new Date());
+            return zone;
+          }
+        } catch (err) {}
+        return FALLBACK_TZ;
+      }
+
+      var ZONE = deviceZone();
+
+      function cityFromZone(zone) {
+        var parts = zone.split('/');
+        return parts[parts.length - 1].replace(/_/g, ' ');
+      }
+      function regionFromZone(zone) {
+        var parts = zone.split('/');
+        return parts.length > 1 ? parts[0].replace(/_/g, ' ') : '';
+      }
+
+      function offsetLabel(now, zone) {
+        try {
+          var parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: zone, timeZoneName: 'shortOffset'
+          }).formatToParts(now);
+          for (var i = 0; i < parts.length; i++) {
+            if (parts[i].type === 'timeZoneName') return parts[i].value.replace('GMT', 'UTC');
+          }
+        } catch (err) {}
+        return '';
+      }
+
+      /* ---- Settings menu -------------------------------------------------- */
+      function openMenu() {
+        menu.hidden = false;
+        gear.setAttribute('aria-expanded', 'true');
+      }
+      function closeMenu() {
+        menu.hidden = true;
+        gear.setAttribute('aria-expanded', 'false');
+      }
+      function toggleMenu() {
+        if (menu.hidden) { openMenu(); } else { closeMenu(); }
+      }
+
+      gear.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleMenu();
+      });
+      menu.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { closeMenu(); });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !menu.hidden) {
+          closeMenu();
+          gear.focus();
+        }
+      });
+
+      hour24Input.checked = readStore('clock.hour24') === '1';
+      secondsInput.checked = readStore('clock.showSeconds') !== '0';
+
+      if (!storageOk) {
+        noteEl.textContent = 'Zone follows this device. This embed blocks storage, so changes reset on reload.';
+      }
+
+      function update() {
+        var now = new Date();
+        var use24 = hour24Input.checked;
+        var withSeconds = secondsInput.checked;
+
+        var options = {
+          timeZone: ZONE, hour: '2-digit', minute: '2-digit', hour12: !use24
+        };
+        if (withSeconds) options.second = '2-digit';
+
+        var timeParts = new Intl.DateTimeFormat('en-US', options).formatToParts(now);
+        function get(type) {
+          for (var i = 0; i < timeParts.length; i++) {
+            if (timeParts[i].type === type) return timeParts[i].value;
+          }
+          return '';
+        }
+
+        hmEl.textContent = get('hour') + ':' + get('minute');
+
+        if (withSeconds) {
+          secEl.hidden = false;
+          secEl.textContent = ':' + get('second');
+        } else {
+          secEl.hidden = true;
+        }
+
+        meridiemEl.textContent = use24 ? '' : get('dayPeriod');
+
+        var offset = offsetLabel(now, ZONE);
+        var city = cityFromZone(ZONE);
+        var region = regionFromZone(ZONE);
+
+        zoneOut.textContent = offset || ZONE;
+        zoneOut.title = ZONE;
+        locationOut.textContent = region ? city + ' \u00b7 ' + region : city;
+        locationOut.title = ZONE;
+      }
+
+      hour24Input.addEventListener('change', function () {
+        writeStore('clock.hour24', hour24Input.checked ? '1' : '0');
+        update();
+      });
+      secondsInput.addEventListener('change', function () {
+        writeStore('clock.showSeconds', secondsInput.checked ? '1' : '0');
+        update();
+      });
+
+      update();
+      setInterval(update, 1000);
+    })();
+  </script>
+</body>
+</html>
