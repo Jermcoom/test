@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Forecast Widget</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111111;
+      --panel: #151515;
+      --menu: #1d1d1d;
+      --text: #ffffff;
+      --muted: rgba(255,255,255,.58);
+      --track: rgba(255,255,255,.12);
+      --bar: #ffffff;
+      --border: rgba(255,255,255,.14);
+      --focus: rgba(255,255,255,.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .widget {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 14px 38px rgba(0,0,0,.18);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+      flex: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 4vw, 26px);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+
+    .gear {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+
+    .gear:hover,
+    .gear[aria-expanded="true"] {
+      background: rgba(255,255,255,.07);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .gear:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .gear svg { width: 17px; height: 17px; display: block; }
+
+    .menu {
+      position: absolute;
+      top: 58px;
+      right: 20px;
+      z-index: 20;
+      width: min(258px, calc(100% - 40px));
+      background: var(--menu);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+    }
+
+    .menu[hidden] { display: none; }
+
+    .menu-title {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    input[type="search"] {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      padding: 7px 10px;
+      font: inherit;
+      font-size: 13px;
+      color-scheme: dark;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: rgba(255,255,255,.35);
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+
+    .results {
+      display: grid;
+      gap: 2px;
+      max-height: 152px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+
+    .results:empty { display: none; }
+
+    .result {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 7px 9px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: rgba(255,255,255,.82);
+      font: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+
+    .result:hover { background: rgba(255,255,255,.08); }
+
+    .result:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+
+    .result small { display: block; color: rgba(255,255,255,.4); font-size: 11px; margin-top: 2px; }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 0;
+      color: rgba(255,255,255,.86);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #ffffff;
+      cursor: pointer;
+    }
+
+    .note {
+      color: rgba(255,255,255,.4);
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 10px;
+    }
+
+    .stack {
+      flex: 1 1 auto;
+      display: grid;
+      grid-auto-rows: min-content;
+      align-content: space-between;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 38px 22px 1fr minmax(74px, auto);
+      gap: 12px;
+      align-items: center;
+    }
+
+    .row.with-pop { grid-template-columns: 38px 22px 1fr 38px minmax(74px, auto); }
+
+    .day {
+      font-size: 14px;
+      color: rgba(255,255,255,.86);
+      letter-spacing: .015em;
+    }
+
+    .row.today .day { font-weight: 650; color: var(--text); }
+
+    .ico {
+      width: 20px;
+      height: 20px;
+      color: rgba(255,255,255,.66);
+    }
+
+    .ico svg { width: 100%; height: 100%; display: block; }
+
+    .track {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--track);
+      overflow: hidden;
+    }
+
+    .fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 0%;
+      border-radius: inherit;
+      background: var(--bar);
+      transition: left 600ms ease, width 600ms ease;
+    }
+
+    .pop {
+      text-align: right;
+      color: rgba(255,255,255,.4);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .temps {
+      text-align: right;
+      color: rgba(255,255,255,.72);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .temps b { font-weight: 600; color: rgba(255,255,255,.92); }
+
+    .temps span { color: rgba(255,255,255,.4); margin-left: 6px; }
+
+    .meta {
+      flex: none;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: rgba(255,255,255,.38);
+      font-size: 11px;
+    }
+
+    .meta.error { color: rgba(255,255,255,.66); }
+
+    .refresh {
+      flex: none;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: rgba(255,255,255,.45);
+      cursor: pointer;
+    }
+
+    .refresh:hover { background: rgba(255,255,255,.07); color: var(--text); }
+
+    .refresh:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+
+    .refresh svg { width: 13px; height: 13px; display: block; }
+
+    .loading { opacity: .45; }
+
+    @media (max-width: 520px) {
+      body { padding: 10px; }
+      .widget { padding: 18px 20px; border-radius: 16px; }
+      .row { grid-template-columns: 32px 18px 1fr minmax(64px, auto); gap: 9px; }
+      .row.with-pop { grid-template-columns: 32px 18px 1fr 32px minmax(64px, auto); }
+      .menu { right: 16px; top: 54px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fill { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" aria-label="Five day forecast widget">
+    <header>
+      <div>
+        <h1>Forecast</h1>
+        <div class="subtitle" id="placeOut">Loading&hellip;</div>
+      </div>
+      <button class="gear" id="gear" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="menu" id="menu" role="dialog" aria-label="Forecast settings" hidden>
+      <div class="menu-title">Forecast settings</div>
+      <label class="field">
+        Location
+        <input id="cityInput" type="search" placeholder="Search a city" autocomplete="off" aria-label="Search a city" />
+      </label>
+      <div class="results" id="results" role="listbox" aria-label="City results"></div>
+      <label class="toggle">
+        Fahrenheit
+        <input id="fahrenheit" type="checkbox" />
+      </label>
+      <label class="toggle">
+        Start with today
+        <input id="includeToday" type="checkbox" />
+      </label>
+      <label class="toggle">
+        Show rain chance
+        <input id="showPop" type="checkbox" checked />
+      </label>
+      <div class="note" id="note">Data from Open-Meteo. Location is shared with the Weather widget.</div>
+    </div>
+
+    <section class="stack" id="stack" aria-label="Five day forecast"></section>
+
+    <footer class="meta">
+      <span id="statusOut">Loading&hellip;</span>
+      <button class="refresh" id="refreshBtn" type="button" aria-label="Refresh" title="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---- Defaults ------------------------------------------------------
+         Used until a city is chosen in the settings menu.
+      --------------------------------------------------------------------- */
+      var DEFAULT_PLACE = {
+        name: 'Winnipeg',
+        admin: 'Manitoba',
+        country: 'Canada',
+        latitude: 49.8844,
+        longitude: -97.1470
+      };
+      var DAYS = 5;
+      var REFRESH_MS = 30 * 60 * 1000;   // 30 minutes
+      /* -------------------------------------------------------------------- */
+
+      var gear = document.getElementById('gear');
+      var menu = document.getElementById('menu');
+      var cityInput = document.getElementById('cityInput');
+      var results = document.getElementById('results');
+      var fahrenheitInput = document.getElementById('fahrenheit');
+      var todayInput = document.getElementById('includeToday');
+      var popInput = document.getElementById('showPop');
+      var noteEl = document.getElementById('note');
+
+      var placeOut = document.getElementById('placeOut');
+      var stack = document.getElementById('stack');
+      var statusOut = document.getElementById('statusOut');
+      var refreshBtn = document.getElementById('refreshBtn');
+
+      // Storage can be blocked inside a sandboxed embed. Never let it throw.
+      var storageOk = true;
+      function readStore(key) {
+        try { return window.localStorage.getItem(key); }
+        catch (err) { storageOk = false; return null; }
+      }
+      function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); }
+        catch (err) { storageOk = false; }
+      }
+
+      /* ---- Settings menu -------------------------------------------------- */
+      function openMenu() {
+        menu.hidden = false;
+        gear.setAttribute('aria-expanded', 'true');
+        cityInput.focus();
+      }
+      function closeMenu() {
+        menu.hidden = true;
+        gear.setAttribute('aria-expanded', 'false');
+      }
+      function toggleMenu() {
+        if (menu.hidden) { openMenu(); } else { closeMenu(); }
+      }
+
+      gear.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleMenu();
+      });
+      menu.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { closeMenu(); });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !menu.hidden) {
+          closeMenu();
+          gear.focus();
+        }
+      });
+
+      /* ---- WMO weather codes ---------------------------------------------- */
+      var CODES = {
+        0: ['Clear', 'sun'], 1: ['Mainly clear', 'sun'], 2: ['Partly cloudy', 'partly'],
+        3: ['Overcast', 'cloud'], 45: ['Fog', 'fog'], 48: ['Rime fog', 'fog'],
+        51: ['Light drizzle', 'drizzle'], 53: ['Drizzle', 'drizzle'], 55: ['Heavy drizzle', 'drizzle'],
+        56: ['Freezing drizzle', 'drizzle'], 57: ['Freezing drizzle', 'drizzle'],
+        61: ['Light rain', 'rain'], 63: ['Rain', 'rain'], 65: ['Heavy rain', 'rain'],
+        66: ['Freezing rain', 'rain'], 67: ['Freezing rain', 'rain'],
+        71: ['Light snow', 'snow'], 73: ['Snow', 'snow'], 75: ['Heavy snow', 'snow'],
+        77: ['Snow grains', 'snow'], 80: ['Light showers', 'rain'], 81: ['Showers', 'rain'],
+        82: ['Heavy showers', 'rain'], 85: ['Snow showers', 'snow'], 86: ['Snow showers', 'snow'],
+        95: ['Thunderstorm', 'storm'], 96: ['Thunderstorm', 'storm'], 99: ['Thunderstorm', 'storm']
+      };
+
+      function svg(inner) {
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+          'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+      }
+
+      var CLOUD = '<path d="M17.5 19H7a4.5 4.5 0 0 1-.36-8.98 6 6 0 0 1 11.63 1.2A3.9 3.9 0 0 1 17.5 19z"></path>';
+
+      var ICONS = {
+        sun: function () {
+          return svg('<circle cx="12" cy="12" r="4.2"></circle><path d="M12 2v2M12 20v2M4.2 4.2l1.5 1.5M18.3 18.3l1.5 1.5M2 12h2M20 12h2M4.2 19.8l1.5-1.5M18.3 5.7l1.5-1.5"></path>');
+        },
+        partly: function () {
+          return svg('<circle cx="8.5" cy="8" r="3.1"></circle><path d="M8.5 2.4v1.6M3.6 8h-1.6M4.9 4.4 3.8 3.3M12.1 4.4l1.1-1.1"></path>' +
+            '<path d="M18 20H8.5a3.9 3.9 0 0 1-.3-7.78 5.2 5.2 0 0 1 10.05 1.04A3.4 3.4 0 0 1 18 20z"></path>');
+        },
+        cloud: function () { return svg(CLOUD); },
+        fog: function () {
+          return svg('<path d="M17.5 15.5H7a4.5 4.5 0 0 1-.36-8.98 6 6 0 0 1 11.63 1.2 3.9 3.9 0 0 1-.77 7.78z"></path><path d="M4 19h10M17 19h3"></path>');
+        },
+        drizzle: function () { return svg(CLOUD + '<path d="M9 21v1M13 21v1M17 21v1"></path>'); },
+        rain: function () { return svg(CLOUD + '<path d="M8.5 20.5 7.5 23M12.5 20.5 11.5 23M16.5 20.5 15.5 23"></path>'); },
+        snow: function () { return svg(CLOUD + '<path d="M9 21.5h.01M13 21.5h.01M17 21.5h.01M9 23.5h.01M13 23.5h.01"></path>'); },
+        storm: function () { return svg(CLOUD + '<path d="M13 20.5 10 21l2 3"></path>'); }
+      };
+
+      function describe(code) { return CODES[code] || ['Unknown', 'cloud']; }
+
+      function iconFor(code) {
+        var make = ICONS[describe(code)[1]] || ICONS.cloud;
+        return make();
+      }
+
+      /* ---- Settings values ------------------------------------------------ */
+      // Keys are shared with the Weather widget so both follow one city.
+      var place = DEFAULT_PLACE;
+      try {
+        var savedPlace = JSON.parse(readStore('console.place') || 'null');
+        if (savedPlace && typeof savedPlace.latitude === 'number') place = savedPlace;
+      } catch (err) {}
+
+      fahrenheitInput.checked = readStore('console.fahrenheit') === '1';
+      todayInput.checked = readStore('forecast.includeToday') === '1';
+      popInput.checked = readStore('forecast.showPop') !== '0';
+
+      if (!storageOk) {
+        noteEl.textContent = 'Data from Open-Meteo. This embed blocks storage, so the city resets on reload.';
+      }
+
+      function placeLabel(p) {
+        return p.admin ? p.name + ', ' + p.admin : (p.country ? p.name + ', ' + p.country : p.name);
+      }
+
+      /* ---- City search ----------------------------------------------------- */
+      var searchTimer = null;
+
+      function renderResults(list) {
+        if (!list || !list.length) {
+          results.innerHTML = '';
+          return;
+        }
+        results.innerHTML = list.map(function (item, index) {
+          var detail = [item.admin1, item.country].filter(Boolean).join(', ');
+          return '<button class="result" type="button" data-index="' + index + '">' +
+            item.name + '<small>' + detail + '</small></button>';
+        }).join('');
+
+        var buttons = results.querySelectorAll('.result');
+        for (var i = 0; i < buttons.length; i++) {
+          buttons[i].addEventListener('click', function (event) {
+            var item = list[Number(event.currentTarget.getAttribute('data-index'))];
+            place = {
+              name: item.name,
+              admin: item.admin1 || '',
+              country: item.country || '',
+              latitude: item.latitude,
+              longitude: item.longitude
+            };
+            writeStore('console.place', JSON.stringify(place));
+            results.innerHTML = '';
+            cityInput.value = '';
+            closeMenu();
+            load();
+          });
+        }
+      }
+
+      function searchCity(query) {
+        if (!query || query.length < 2) {
+          results.innerHTML = '';
+          return;
+        }
+        var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' +
+          encodeURIComponent(query) + '&count=5&language=en&format=json';
+        fetch(url)
+          .then(function (response) { return response.json(); })
+          .then(function (data) { renderResults(data.results); })
+          .catch(function () {
+            results.innerHTML = '<div class="note">City search unavailable.</div>';
+          });
+      }
+
+      cityInput.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        var query = cityInput.value.trim();
+        searchTimer = setTimeout(function () { searchCity(query); }, 350);
+      });
+
+      /* ---- Fetch and render ------------------------------------------------ */
+      var loading = false;
+
+      function apiUrl() {
+        var unitTemp = fahrenheitInput.checked ? 'fahrenheit' : 'celsius';
+        return 'https://api.open-meteo.com/v1/forecast' +
+          '?latitude=' + encodeURIComponent(place.latitude) +
+          '&longitude=' + encodeURIComponent(place.longitude) +
+          '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+          '&timezone=auto&forecast_days=' + (DAYS + 1) +
+          '&temperature_unit=' + unitTemp;
+      }
+
+      function dayLabel(iso, offset) {
+        var d = new Date(iso + 'T12:00:00');
+        if (isNaN(d.getTime())) return '\u2014';
+        if (offset === 0) return 'Today';
+        if (offset === 1) return 'Tmrw';
+        return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(d);
+      }
+
+      function roundTemp(value) {
+        return (value === null || value === undefined || isNaN(value)) ? '\u2014' : Math.round(value) + '\u00b0';
+      }
+
+      function render(data) {
+        var daily = data.daily || {};
+        var dates = daily.time || [];
+        var start = todayInput.checked ? 0 : 1;
+        var withPop = popInput.checked;
+
+        placeOut.textContent = placeLabel(place);
+        placeOut.title = placeLabel(place);
+
+        var days = [];
+        for (var i = start; i < start + DAYS && i < dates.length; i++) {
+          days.push({
+            offset: i,
+            date: dates[i],
+            code: daily.weather_code ? daily.weather_code[i] : null,
+            max: daily.temperature_2m_max ? daily.temperature_2m_max[i] : null,
+            min: daily.temperature_2m_min ? daily.temperature_2m_min[i] : null,
+            pop: daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : null
+          });
+        }
+
+        if (!days.length) {
+          stack.innerHTML = '<div class="note">No forecast available.</div>';
+          return;
+        }
+
+        // Scale every bar against the warmest and coldest values on screen.
+        var lows = days.map(function (d) { return d.min; }).filter(function (v) { return v !== null; });
+        var highs = days.map(function (d) { return d.max; }).filter(function (v) { return v !== null; });
+        var floor = Math.min.apply(null, lows);
+        var ceil = Math.max.apply(null, highs);
+        var spread = (ceil - floor) || 1;
+
+        stack.innerHTML = days.map(function (day) {
+          var left = ((day.min - floor) / spread) * 100;
+          var width = ((day.max - day.min) / spread) * 100;
+          if (width < 6) width = 6;
+          if (left + width > 100) left = Math.max(0, 100 - width);
+
+          var info = describe(day.code);
+          var classes = 'row' + (withPop ? ' with-pop' : '') + (day.offset === 0 ? ' today' : '');
+
+          return '<div class="' + classes + '" title="' + info[0] + '">' +
+            '<div class="day">' + dayLabel(day.date, day.offset) + '</div>' +
+            '<div class="ico">' + iconFor(day.code) + '</div>' +
+            '<div class="track" role="img" aria-label="' + info[0] + ', high ' + roundTemp(day.max) +
+              ', low ' + roundTemp(day.min) + '">' +
+              '<div class="fill" style="left:' + left + '%;width:' + width + '%"></div>' +
+            '</div>' +
+            (withPop ? '<div class="pop">' + (day.pop === null || day.pop === undefined ? '' : day.pop + '%') + '</div>' : '') +
+            '<div class="temps"><b>' + roundTemp(day.max) + '</b><span>' + roundTemp(day.min) + '</span></div>' +
+          '</div>';
+        }).join('');
+
+        statusOut.textContent = 'Updated ' + new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric', minute: '2-digit'
+        }).format(new Date()) + ' \u00b7 Open-Meteo';
+        statusOut.parentNode.classList.remove('error');
+      }
+
+      function load() {
+        if (loading) return;
+        loading = true;
+        stack.classList.add('loading');
+        statusOut.textContent = 'Loading\u2026';
+
+        var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = setTimeout(function () { if (controller) controller.abort(); }, 8000);
+
+        fetch(apiUrl(), controller ? { signal: controller.signal } : undefined)
+          .then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+          })
+          .then(function (data) {
+            writeStore('forecast.cache', JSON.stringify({ place: place, data: data, ts: Date.now() }));
+            render(data);
+          })
+          .catch(function (err) {
+            // Surface the reason so a blocked embed is distinguishable from an outage.
+            var reason = (err && err.name === 'AbortError')
+              ? 'No response \u00b7 this embed may block network requests'
+              : 'Request failed \u00b7 ' + ((err && err.message) || 'unknown');
+            statusOut.textContent = reason;
+            statusOut.parentNode.classList.add('error');
+            if (window.console && console.error) console.error('Open-Meteo request failed:', err);
+          })
+          .then(function () {
+            clearTimeout(timer);
+            loading = false;
+            stack.classList.remove('loading');
+          });
+      }
+
+      // Paint instantly from cache, then refresh from the network.
+      try {
+        var cached = JSON.parse(readStore('forecast.cache') || 'null');
+        if (cached && cached.data) {
+          render(cached.data);
+          statusOut.textContent = 'Cached \u00b7 refreshing\u2026';
+        }
+      } catch (err) {}
+
+      fahrenheitInput.addEventListener('change', function () {
+        writeStore('console.fahrenheit', fahrenheitInput.checked ? '1' : '0');
+        load();
+      });
+      todayInput.addEventListener('change', function () {
+        writeStore('forecast.includeToday', todayInput.checked ? '1' : '0');
+        load();
+      });
+      popInput.addEventListener('change', function () {
+        writeStore('forecast.showPop', popInput.checked ? '1' : '0');
+        load();
+      });
+      refreshBtn.addEventListener('click', function () { load(); });
+
+      load();
+      setInterval(load, REFRESH_MS);
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) load();
+      });
+    })();
+  </script>
+</body>
+</html>
