@@ -25,3 +25,14 @@ Prior birth date, horizon, unit, time description retain the same storage key.
 Old visibility preferences are ignored: combined panel shows all six widgets.
 Standalone files show their selected widget only.
 Browser storage limitations still apply; blocked saves report session-only.
+
+V7 TIMEZONE FIX
+Time, Timezone and Date now use the IANA timezone returned by ipapi.co, NOT the
+embedded browser's reported timezone. The browser clock supplies the current
+instant; Intl formats it in the IP-derived timezone and handles daylight saving.
+Refresh within Time, Timezone or Date settings re-runs the IP lookup. Standalone
+clock/timezone/date files also request IP timezone on load. If no valid timezone
+is available, these show an explicit unavailable state rather than silently UTC.
+The timestamp still depends on an accurate browser/system clock; no remote time
+synchronization is introduced. VPN/proxy/IP-provider accuracy still applies.
+No layout/mobile-fitting changes were made in this version.
